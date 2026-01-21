@@ -1,243 +1,163 @@
-<!-- PROJECT INTRO -->
 
-<img src='https://svgshare.com/i/__W.svg' title='Orfi_temporary' height="150">
+# OrpheusDL (FZF Fork)
 
-OrpheusDL
-=========
+A modified version of [OrpheusDL](https://github.com/OrfiTeam/OrpheusDL) integrated with **fzf** for a rapid, interactive command-line experience. Designed to be driven by the **`tdl`** smart wrapper.
 
-A modular music archival program
+### ✨ Key Features
 
-[Report Bug](https://github.com/OrfiTeam/OrpheusDL/issues)
-·
-[Request Feature](https://github.com/OrfiTeam/OrpheusDL/issues)
+* **Interactive UI:** Replaces the standard selection menu with a searchable, sortable **fzf** table.
+* **Rich Previews:** "Summary Card" view in the preview pane shows full details (Artist, Year, Quality, Explicit status) without cluttering the main list.
+* **Context Aware:** Automatically adjusts column layouts for Tracks, Albums, or Artists.
+* **Self-Healing:** The companion shell script automatically detects broken Python environments and rebuilds them on the fly.
 
+---
 
-## Table of content
+### 📦 Requirements
 
-- [About OrpheusDL](#about-orpheusdl)
-- [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-    - [Global/Formatting](#globalformatting)
-        - [Format variables](#format-variables)
-- [Contact](#contact)
-- [Acknowledgements](#acknowledgements)
+* **Python 3.x**
+* **[fzf](https://github.com/junegunn/fzf)** (Required for the interactive menu)
+* **Fish Shell** (For the `tdl` wrapper)
 
+### 🛠️ Setup
 
+* **Clone this Repository** (or replace your existing `orpheus.py` with the one provided here).
+or
+* **Install the Wrapper:** Copy the Tidal fish wrapper `tdl` function below into your Fish configuration (usually `~/.config/fish/functions/tdl.fish`).
 
-<!-- ABOUT ORPHEUS -->
-## About OrpheusDL
+> **Note:** The `tdl` wrapper manages the installation at `~/Music/OrpheusDL` by default. It will automatically clone the repository and the Tidal module if they are missing, and create the venv there.
 
-OrpheusDL is a modular music archival tool written in Python which allows archiving from multiple different services.
+---
 
+### 🚀 Usage
 
-<!-- GETTING STARTED -->
-## Getting Started
+The **`tdl`** command is your single point of entry. It handles activation, execution, and updating.
 
-Follow these steps to get a local copy of Orpheus up and running:
+#### 1. Search (Smart Detection)
 
-### Prerequisites
+Search for tracks by default, or specify a type.
 
-* Python 3.7+ (due to the requirement of dataclasses), though Python 3.9 is highly recommended
+```fish
+# Default (Track Search)
+tdl "call me karizma"
 
-### Installation
+# Specific Types
+tdl album "pink floyd"
+tdl artist "the fray"
+tdl playlist "lofi hip hop"
 
-1. Clone the repo
-    ```shell
-    git clone https://github.com/OrfiTeam/OrpheusDL.git && cd OrpheusDL
-    ```
-2. Install all requirements
-   ```shell
-   pip install -r requirements.txt
-   ```
-3. Run the program at least once, or use this command to create the settings file
-   ```shell
-   python3 orpheus.py settings refresh
-   ```
-4. Enter your credentials in `config/settings.json`
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-Just call `orpheus.py` with any link you want to archive, for example Qobuz:
-```shell
-python3 orpheus.py https://open.qobuz.com/album/c9wsrrjh49ftb
 ```
 
-Alternatively do a search (luckysearch to automatically select the first option):
-```shell
-python3 orpheus.py search qobuz track darkside alan walker
+#### 2. Direct Download
+
+Paste a Tidal URL to download immediately.
+
+```fish
+tdl "https://tidal.com/browse/track/123456"
+
 ```
 
-Or if you have the ID of what you want to download, use:
-```shell
-python3 orpheus.py download qobuz track 52151405
+#### 3. Updates
+
+Updates the core repository, the Tidal module, and Python dependencies.
+
+```fish
+tdl update
+
 ```
 
-<!-- CONFIGURATION -->
-## Configuration
+---
 
-You can customize every module from Orpheus individually and also set general/global settings which are active in every
-loaded module. You'll find the configuration file here: `config/settings.json`
+### ⌨️ Controls (FZF)
 
-### Global/General
-```json5
-{
-    "download_path": "./downloads/",
-    "download_quality": "hifi",
-    "search_limit": 10
-}
+Once the search results appear:
+
+* **Type** to filter results instantly.
+* **Up/Down** to navigate.
+* **Enter** to select and download.
+* **ESC** to cancel.
+
+**Column Legend:**
+
+* `#`: Index
+* `TRACK`: Track Title (Truncated)
+* `YEAR`: Release Year
+* `LENGTH`: Duration (MM:SS)
+* `[E]`: Explicit Tag
+* `QUAL`: Quality (HiFi, Mast, DA=Dolby Atmos)
+
+---
+
+### 🐟 The Wrapper Script (`tdl`)
+
+```fish
+function tdl --description "OrpheusDL Tidal Wrapper"
+    set -l tdl_base "$HOME/Music"
+    set -l tdl_dir "$tdl_base/OrpheusDL"
+    set -l venv_dir "$tdl_dir/.venv"
+    set -l tidal_mod_dir "$tdl_dir/modules/tidal"
+    set -l py "$venv_dir/bin/python"
+
+    # --- Phase 1: Main Repo Check ---
+    if not test -d "$tdl_dir"
+        echo "OrpheusDL missing. Cloning..."
+        mkdir -p "$tdl_base"
+        git clone https://github.com/OrfiTeam/OrpheusDL.git "$tdl_dir"
+    end
+
+    # --- Phase 2: Venv Check ---
+    if not test -f "$py"
+        echo "Venv broken or missing. Rebuilding..."
+        rm -rf "$venv_dir"
+        python -m venv "$venv_dir"
+        "$venv_dir/bin/pip" install -U pip
+        "$venv_dir/bin/pip" install -r "$tdl_dir/requirements.txt"
+    end
+
+    # --- Phase 3: Tidal Module Check ---
+    if not test -d "$tidal_mod_dir"
+        echo "Tidal module missing. Installing..."
+        builtin cd "$tdl_dir"
+        git clone --recurse-submodules https://github.com/Dniel97/orpheusdl-tidal.git "modules/tidal"
+        # Force init settings
+        "$py" orpheus.py --help > /dev/null 2>&1
+    end
+
+    # --- Phase 4: Execution Logic ---
+    if test (count $argv) -eq 0
+        echo "Usage: tdl [url | update | (album/artist/track) search_term]"
+        return 1
+    end
+    
+    builtin cd "$tdl_dir"
+    set -l first "$argv[1]"
+
+    # UPDATE
+    if test "$first" = "update"
+        echo "Updating OrpheusDL and Tidal..."
+        git pull
+        git -C "modules/tidal" pull
+        "$venv_dir/bin/pip" install -r requirements.txt
+        echo "Done."
+        return 0
+    end
+
+    # URL
+    if string match -q "http*" "$first"
+        "$py" orpheus.py "$argv"
+        return 0
+    end
+
+    # SEARCH
+    if contains "$first" album artist playlist track
+        set -l mode $argv[1]
+        set -l query $argv[2..-1]
+        "$py" orpheus.py search tidal "$mode" "$query"
+    else
+        # Default to track search
+        set -l query $argv
+        "$py" orpheus.py search tidal track "$query"
+    end
+end
+
 ```
 
-`download_path`: Set the absolute or relative output path with `/` as the delimiter
-
-`download_quality`: Choose one of the following settings:
-* "hifi": FLAC higher than 44.1/16 if available
-* "lossless": FLAC with 44.1/16 if available
-* "high": lossy codecs such as MP3, AAC, ... in a higher bitrate
-* "medium": lossy codecs such as MP3, AAC, ... in a medium bitrate
-* "low": lossy codecs such as MP3, AAC, ... in a lower bitrate
-
-**NOTE: The `download_quality` really depends on the used modules, so check out the modules README.md**
-
-`search_limit`: How many search results are shown
-
-
-### Global/Formatting:
-
-```json5
-{
-    "album_format": "{name}{explicit}",
-    "playlist_format": "{name}{explicit}",
-    "track_filename_format": "{track_number}. {name}",
-    "single_full_path_format": "{name}",
-    "enable_zfill": true,
-    "force_album_format": false
-}
-```
-
-`track_filename_format`: How tracks are formatted in albums and playlists. The relevant extension is appended to the end.
-
-`album_format`, `playlist_format`, `artist_format`: Base directories for their respective formats - tracks and cover
-art are stored here. May have slashes in it, for instance {artist}/{album}.
-
-`single_full_path_format`: How singles are handled, which is separate to how the above work.
-Instead, this has both the folder's name and the track's name.
-
-`enable_zfill`: Enables zero padding for `track_number`, `total_tracks`, `disc_number`, `total_discs` if the
-corresponding number has more than 2 digits
-
-`force_album_format`: Forces the `album_format` for tracks instead of the `single_full_path_format` and also
-uses `album_format` in the `playlist_format` folder 
-
-
-#### Format variables
-
-`track_filename_format` variables are `{name}`, `{album}`, `{album_artist}`, `{album_id}`, `{track_number}`,
-`{total_tracks}`, `{disc_number}`, `{total_discs}`, `{release_date}`, `{release_year}`, `{artist_id}`, `{isrc}`,
-`{upc}`, `{explicit}`, `{copyright}`, `{codec}`, `{sample_rate}`, `{bit_depth}`.
-
-`album_format` variables are `{name}`, `{id}`, `{artist}`, `{artist_id}`, `{release_year}`, `{upc}`, `{explicit}`,
-`{quality}`, `{artist_initials}`.
-
-`playlist_format` variables are `{name}`, `{creator}`, `{tracks}`, `{release_year}`, `{explicit}`, `{creator_id}`
-
-* `{quality}` will add
-    ```
-     [Dolby Atmos]
-     [96kHz 24bit]
-     [M]
-    ```
- to the corresponding path (depending on the module)
-* `{explicit}` will add
-    ```
-     [E]
-    ```
-  to the corresponding path
-
-### Global/Covers
-
-```json5
-{
-    "embed_cover": true,
-    "main_compression": "high",
-    "main_resolution": 1400,
-    "save_external": false,
-    "external_format": "png",
-    "external_compression": "low",
-    "external_resolution": 3000,
-    "save_animated_cover": true
-}
-```
-
-| Option               | Info                                                                                     |
-|----------------------|------------------------------------------------------------------------------------------|
-| embed_cover          | Enable it to embed the album cover inside every track                                    |
-| main_compression     | Compression of the main cover                                                            |
-| main_resolution      | Resolution (in pixels) of the cover of the module used                                   |
-| save_external        | Enable it to save the cover from a third party cover module                              |
-| external_format      | Format of the third party cover, supported values: `jpg`, `png`, `webp`                  |
-| external_compression | Compression of the third party cover, supported values: `low`, `high`                    |
-| external_resolution  | Resolution (in pixels) of the third party cover                                          |
-| save_animated_cover  | Enable saving the animated cover when supported from the module (often in MPEG-4 format) |
-
-### Global/Codecs
-
-```json5
-{
-    "proprietary_codecs": false,
-    "spatial_codecs": true
-}
-```
-
-`proprietary_codecs`: Enable it to allow `MQA`, `E-AC-3 JOC` or `AC-4 IMS`
-
-`spatial_codecs`: Enable it to allow `MPEG-H 3D`, `E-AC-3 JOC` or `AC-4 IMS`
-
-**Note: `spatial_codecs` has priority over `proprietary_codecs` when deciding if a codec is enabled**
-
-### Global/Module_defaults
-
-```json5
-{
-    "lyrics": "default",
-    "covers": "default",
-    "credits": "default"
-}
-```
-
-Change `default` to the module name under `/modules` in order to retrieve `lyrics`, `covers` or `credits` from the
-selected module
-
-### Global/Lyrics
-```json5
-{
-    "embed_lyrics": true,
-    "embed_synced_lyrics": false,
-    "save_synced_lyrics": true
-}
-```
-
-| Option              | Info                                                                                                                                                                |
-|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| embed_lyrics        | Embeds the (unsynced) lyrics inside every track                                                                                                                     |
-| embed_synced_lyrics | Embeds the synced lyrics inside every track (needs `embed_lyrics` to be enabled) (required for [Roon](https://community.roonlabs.com/t/1-7-lyrics-tag-guide/85182)) |
-| save_synced_lyrics  | Saves the synced lyrics inside a  `.lrc` file in the same directory as the track with the same `track_format` variables                                             |
-
-<!-- Contact -->
-## Contact
-
-OrfiDev (Project Lead) - [@OrfiDev](https://github.com/OrfiTeam)
-
-Dniel97 (Current Lead Developer) - [@Dniel97](https://github.com/Dniel97)
-
-Project Link: [Orpheus Public GitHub Repository](https://github.com/OrfiTeam/OrpheusDL)
-
-
-
-<!-- ACKNOWLEDGEMENTS -->
-## Acknowledgements
-* Chimera by Aesir - the inspiration to the project
-* [Icon modified from a freepik image](https://www.freepik.com/)
